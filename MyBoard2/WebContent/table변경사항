@@ -1,0 +1,18 @@
+-trashboard table은
+-board table을 참조하는 likelist, attfile table을 trash table두개 더 만들지 않으면 사용 불가
+-board table에 글을 출력할지 말지 보여주는 컬럼 하나 추가(visible)로 대체
+-visible coulmn default값 1 출력o
+- 0 - false(출력x) 1 - true(출력o)로 통일
+-likes column은 실제 db에 입력하는 대신 출력시 dao를 통한 countlikes같은 method사용 - dto에 변수만 있으면 사용가능 불필요한 column
+
+
+drop table trashboard
+alter table board drop column likes         ---할필요 없음
+alter table board add likes number(4) default 0  ---바로 위 실행했으면 이것 실행
+alter table noticeboard drop column likes -- 할필요 없음
+ALTER TABLE noticeboard ADD likes number(4) default 0 ---바로 위 실행했으면 이것 실행
+alter table board add visible number(1) default 1 check(visible<2) 
+//
+ALTER TABLE board ADD likes number(4) default 0
+
+asass

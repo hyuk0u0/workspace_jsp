@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename type &apos;com.naver.Selecte&apos; to &apos;Select&apos;&#x0D;&#x0A;- Original project: &apos;MyMMS1&apos;&#x0D;&#x0A;- Original element: &apos;com.naver.Selecte&apos;&#x0D;&#x0A;- Renamed element: &apos;com.naver.Select&apos;&#x0D;&#x0A;- Update references to refactored element&#x0D;&#x0A;- Update textual occurrences in comments and strings" description="Rename type &apos;Selecte&apos;" flags="589830" id="org.eclipse.jdt.ui.rename.type" input="/src&lt;com.naver{Selecte.java[Selecte" matchStrategy="1" name="Select" qualified="false" references="true" similarDeclarations="false" stamp="1590463668606" textual="false" version="1.0"/>
+</session>

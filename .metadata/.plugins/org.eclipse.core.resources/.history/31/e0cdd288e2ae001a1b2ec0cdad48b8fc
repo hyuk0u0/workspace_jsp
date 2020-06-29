@@ -1,0 +1,349 @@
+package kr.co.dao;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+import javax.sql.DataSource;
+
+public class BoardDAO {
+
+		private DataSource dataFactory;
+		
+		public BoardDAO() {
+			try {
+				Context ctx = new InitialContext();
+				dataFactory = (DataSource) ctx.lookup("java:comp/env/jdbc/oracle11g");
+			} catch (NamingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		private void closeAll(Connection conn, PreparedStatement pstmt, ResultSet rs) {
+			try {
+				
+				if(rs!=null)rs.close();
+				if(pstmt!=null)pstmt.close();
+				if(conn!=null)conn.close();
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	
+		public void insert(BoardDTO boardDTO, String fileName, String uploadPath) {
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		String sql = "insert into board (num, id, title, content, money,  readcnt, category, location) values (?,?,?,?,?,?,?,?)";
+		boolean isCommit = false;
+		try {
+			conn = dataFactory.getConnection();
+			conn.setAutoCommit(false);
+			pstmt = conn.prepareStatement(sql);
+			int num = createNum(conn);
+			int num2 = createTNum(conn);
+			if (num < num2) {
+				num = num2;
+			}
+			pstmt.setInt(1, num);
+			pstmt.setString(2, boardDTO.getId());
+			pstmt.setString(3, boardDTO.getTitle());
+			pstmt.setString(4, boardDTO.getContent());
+			pstmt.setInt(5, boardDTO.getMoney());
+			pstmt.setString(7, boardDTO.getCategory());
+			pstmt.setString(8, boardDTO.getLocation());
+			pstmt.setInt(6, 0);
+			pstmt.executeUpdate();
+			attach(conn, num, uploadPath, fileName);
+			isCommit = true;
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if (isCommit) {
+					conn.commit();
+				} else {
+					conn.rollback();
+				}
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			closeAll(conn, pstmt, null);
+		}
+	}
+
+	private void attach(Connection conn, int num, String uploadPath, String fileName) {
+		PreparedStatement pstmt = null;
+		String sql = "insert into attfile (attNum, num, attPath) values (?, ?, ?)";
+		int attNum = createANum(conn);
+		try {
+			pstmt = conn.prepareStatement(sql);
+			pstmt.setInt(1, attNum);
+			pstmt.setInt(2, num);
+			pstmt.setString(3, uploadPath + File.separator + fileName);
+			pstmt.executeUpdate();
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			closeAll(null, pstmt, null);
+		}
+
+	}
+
+	private int createANum(Connection conn) {
+		Integer num = null;
+		PreparedStatement pstmt = null;
+		String sql = "select max(num) from attfile";
+		ResultSet rs = null;
+		try {
+			pstmt = conn.prepareStatement(sql);
+			rs = pstmt.executeQuery();
+			if (rs.next()) {
+				num = rs.getInt(1);
+				num += 1;
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			closeAll(null, pstmt, rs);
+		}
+		return num;
+	}
+
+	private int createTNum(Connection conn) {
+		Integer num = null;
+		PreparedStatement pstmt = null;
+		String sql = "select max(num) from trashboard";
+		ResultSet rs = null;
+		try {
+			pstmt = conn.prepareStatement(sql);
+			rs = pstmt.executeQuery();
+			if (rs.next()) {
+				num = rs.getInt(1);
+				num += 1;
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			closeAll(null, pstmt, rs);
+		}
+		return num;
+	}
+
+	private int createNum(Connection conn) {
+		Integer num = null;
+		PreparedStatement pstmt = null;
+		String sql = "select max(num) from board";
+		ResultSet rs = null;
+
+		try {
+			pstmt = conn.prepareStatement(sql);
+			rs = pstmt.executeQuery();
+			if (rs.next()) {
+				num = rs.getInt(1);
+				num += 1;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			closeAll(null, pstmt, rs);
+		}
+		return num;
+	}
+		
+	
+	// read(중고 매물 게시글 자세히 보기 클릭하면 나오는것)
+	public BoardDTO read(num) {
+			BoardDTO dto = null;
+			Connection conn = null;
+			PreparedStatement pstmt = null;
+			String sql = "select * from Board where num = ?";
+			ResultSet rs = null;
+			
+			//readcnt 증가시키는 메소드
+			int readcnt = createReadcnt(conn,num);
+			//likes 증가시키는 메소드 
+			int likes = createLikes(conn,num);
+			
+			try {
+				conn = dataFactory.getConnection();
+				pstmt = conn.prepareStatement(sql);
+				pstmt.setString(1, num);
+				rs = pstmt.executeQuery();
+				if(rs.next()) {
+					int num = rs.getInt("num");
+					String id = rs.getString("id");
+					String title = rs.getString("title");
+					String content = rs.getString("content");
+					readcnt = rs.getInt("readcnt");
+					String writeday = rs.getString("writeday");
+					int money = rs.getInt("money");
+					String category = rs.getString("category");
+					String location = rs.getString("location");
+					likes = rs.getInt("likes");
+					
+					dto = new BoardDTO(num, id, title, content, readcnt, writeday, money, category, location, likes)
+				}
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+			} finally {
+				closeAll(conn, pstmt, rs);
+			}
+			return dto;
+		}
+	
+	//readcnt 증가시키는 메서드	
+	public void createReadcnt(Connection conn,int num) {
+		PreparedStatement pstmt = null;
+		String sql = "update board set readcnt = readcnt + 1";
+		
+		try {
+			pstmt = conn.prepareStatement(sql);
+			pstmt.executeUpdate();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			closeAll(null, pstmt, null);
+		}
+	}
+	
+	//likes 증가시키는 메서드 createLikes(conn,num)
+	public void createLikes(Connection conn,int num) {
+		PreparedStatement pstmt = null;
+		String sql = "update board set likes = likes + 1";
+		
+		try {
+			pstmt = conn.prepareStatement(sql);
+			pstmt.executeUpdate();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			closeAll(null, pstmt, null);
+		}
+	}
+	
+	//
+		public List<BoardDTO> searchlist(String keyField, String keyword) {
+		List<BoardDTO> list = new ArrayList<BoardDTO>();
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		String sql = "select *from board where " + keyField + " like ?";
+		ResultSet rs = null;
+
+		try {
+			conn = dataFactory.getConnection();
+			pstmt = conn.prepareStatement(sql);
+			pstmt.setString(1, "%" + keyword + "%");
+			rs = pstmt.executeQuery();
+			while (rs.next()) {
+				int num = rs.getInt("num");
+				String id = rs.getString("id");
+				String title = rs.getString("title");
+				int readcnt = rs.getInt("readcnt");
+				Date writeday = rs.getDate("writeday");
+				int money = rs.getInt("money");
+				String category = rs.getString("category");
+				String location = rs.getString("location");
+				int likes = rs.getInt("likes");
+				BoardDTO dto = new BoardDTO(num, id, title, null, readcnt, writeday, money, category, location, likes);
+				list.add(dto);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			closeAll(conn, pstmt, rs);
+		}
+		return list;
+	}
+
+	public List<BoardDTO> searchlistTL(String keyword) {
+		List<BoardDTO> list = new ArrayList<BoardDTO>();
+
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		String sql = "select *from board where title like ? or location like ?";
+		ResultSet rs = null;
+		try {
+			conn = dataFactory.getConnection();
+			pstmt = conn.prepareStatement(sql);
+			pstmt.setString(1, "%" + keyword + "%");
+			pstmt.setString(2, "%" + keyword + "%");
+			rs = pstmt.executeQuery();
+
+			while (rs.next()) {
+				int num = rs.getInt("num");
+				String id = rs.getString("id");
+				String title = rs.getString("title");
+
+				int readcnt = rs.getInt("readcnt");
+				Date writeday = rs.getDate("writeday");
+				int money = rs.getInt("money");
+				String category = rs.getString("category");
+				String location = rs.getString("location");
+				int likes = rs.getInt("likes");
+
+				BoardDTO dto = new BoardDTO(num, id, title, null, readcnt, writeday, money, category, location, likes);
+
+				list.add(dto);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			// TODO: handle exception
+		} finally {
+			closeAll(conn, pstmt, rs);
+		}
+		return list;
+	}
+
+	public List<BoardDTO> searchlistTC(String keyword) {
+		List<BoardDTO> list = new ArrayList<BoardDTO>();
+
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		String sql = "select *from board where title like ? or content like ?";
+		ResultSet rs = null;
+		try {
+			conn = dataFactory.getConnection();
+			pstmt = conn.prepareStatement(sql);
+			pstmt.setString(1, "%" + keyword + "%");
+			pstmt.setString(2, "%" + keyword + "%");
+			rs = pstmt.executeQuery();
+
+			while (rs.next()) {
+				int num = rs.getInt("num");
+				String id = rs.getString("id");
+				String title = rs.getString("title");
+				int readcnt = rs.getInt("readcnt");
+				Date writeday = rs.getDate("writeday");
+				int money = rs.getInt("money");
+				String category = rs.getString("category");
+				String location = rs.getString("location");
+				int likes = rs.getInt("likes");
+
+				BoardDTO dto = new BoardDTO(num, id, title, null, readcnt, writeday, money, category, location, likes);
+
+				list.add(dto);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			// TODO: handle exception
+		} finally {
+			closeAll(conn, pstmt, rs);
+		}
+		// TODO Auto-generated method stub
+		return list;
+	}
+	
+}
